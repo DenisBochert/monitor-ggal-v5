@@ -1630,8 +1630,8 @@ class HistorialSQLite:
                 MAX(CASE WHEN a.last IS NOT NULL AND b.last IS NOT NULL THEN a.last + b.last END) AS max_last_total,
                 MIN(CASE WHEN a.last IS NOT NULL AND b.last IS NOT NULL THEN a.last - b.last END) AS min_last_spread,
                 MAX(CASE WHEN a.last IS NOT NULL AND b.last IS NOT NULL THEN a.last - b.last END) AS max_last_spread,
-                MIN(CASE WHEN a.last IS NOT NULL AND b.last IS NOT NULL THEN -a.last + 2.0 * b.last END) AS min_last_ratio_inv_1a2b,
-                MAX(CASE WHEN a.last IS NOT NULL AND b.last IS NOT NULL THEN -a.last + 2.0 * b.last END) AS max_last_ratio_inv_1a2b
+                MIN(CASE WHEN a.last IS NOT NULL AND b.last IS NOT NULL THEN a.last - 1.5 * b.last END) AS min_last_ratio_inv_1a2b,
+                MAX(CASE WHEN a.last IS NOT NULL AND b.last IS NOT NULL THEN a.last - 1.5 * b.last END) AS max_last_ratio_inv_1a2b
             FROM snapshots_minuto a
             JOIN snapshots_minuto b
               ON a.fecha = b.fecha AND a.timestamp = b.timestamp
@@ -6315,7 +6315,7 @@ class MonitorGaliciaUI:
         "vega_ratio_pos_1a2b",
         "theta_ratio_pos_1a2b",
     )
-    # Subconjunto de columnas para la estrategia -A+2B.
+    # Subconjunto de columnas para la estrategia A-1.5B.
     TABLA_REL_COLUMNAS_RATIO_NEG = (
         "ratio_inv_1a2b",
         "var_dia_ratio_inv_1a2b",
@@ -6810,7 +6810,7 @@ class MonitorGaliciaUI:
         self._tabla_rel_vars_b: dict[int, StringVar] = self._shared_slot_vars_b
         # Mensaje informativo interno para tabla relaciones vars.
         self._tabla_rel_vars_info: dict[int, StringVar] = {
-            slot: StringVar(value=f"Tabla relaciones {slot}: elegí dos bases activas del vencimiento para ver cierres diarios, ratio de precios, A + B con last, Δ A+B, A - B last siempre visible, Δ A-B, Δ -A+2B y A ask - B bid como columna opcional. Podés arrastrar los encabezados para reordenar columnas. Con Ctrl+clic podés marcar una o más columnas y con clic derecho graficarlas en una ventana emergente.")
+            slot: StringVar(value=f"Tabla relaciones {slot}: elegí dos bases activas del vencimiento para ver cierres diarios, ratio de precios, A + B con last, Δ A+B, A - B last siempre visible, Δ A-B, Δ A-1.5B y A ask - B bid como columna opcional. Podés arrastrar los encabezados para reordenar columnas. Con Ctrl+clic podés marcar una o más columnas y con clic derecho graficarlas en una ventana emergente.")
             for slot in self._tabla_rel_slots
         }
         # Diccionario de variables de estado para tabla relaciones show vega.
@@ -6925,13 +6925,13 @@ class MonitorGaliciaUI:
         self._tabla_rel_show_ratio_pos_button_vars: dict[int, StringVar] = {
             slot: StringVar(value="+A-2B: ON") for slot in self._tabla_rel_slots
         }
-        # Diccionario de variables de estado para estrategia -A+2B en tabla relaciones.
+        # Diccionario de variables de estado para estrategia A-1.5B en tabla relaciones.
         self._tabla_rel_show_ratio_neg_vars: dict[int, BooleanVar] = {
             slot: BooleanVar(value=True) for slot in self._tabla_rel_slots
         }
-        # Diccionario con los textos de botón para estrategia -A+2B en tabla relaciones.
+        # Diccionario con los textos de botón para estrategia A-1.5B en tabla relaciones.
         self._tabla_rel_show_ratio_neg_button_vars: dict[int, StringVar] = {
-            slot: StringVar(value="-A+2B: ON") for slot in self._tabla_rel_slots
+            slot: StringVar(value="A-1.5B: ON") for slot in self._tabla_rel_slots
         }
         # Diccionario de variables de estado para mostrar u ocultar mínimos y máximos diarios.
         self._tabla_rel_show_minmax_vars: dict[int, BooleanVar] = {
@@ -10500,7 +10500,7 @@ class MonitorGaliciaUI:
             "bull": "A+B",
             "spread": "A-B",
             "ratio_pos": "+A-2B",
-            "ratio_neg": "-A+2B",
+            "ratio_neg": "A-1.5B",
         }
         return mapping.get(str(strategy or "").strip().lower(), str(strategy or ""))
 
@@ -10692,7 +10692,7 @@ class MonitorGaliciaUI:
         return f"+A-2B: {'ON' if bool(activo) else 'OFF'}"
 
     def _texto_toggle_tabla_rel_ratio_neg(self, activo: bool) -> str:
-        return f"-A+2B: {'ON' if bool(activo) else 'OFF'}"
+        return f"A-1.5B: {'ON' if bool(activo) else 'OFF'}"
 
     def _texto_toggle_tabla_rel_minmax(self, activo: bool) -> str:
         return f"MinMax: {'ON' if bool(activo) else 'OFF'}"
@@ -10781,7 +10781,7 @@ class MonitorGaliciaUI:
         El orden deja juntas las columnas del mismo bloque lógico. Primero aparecen los
         valores base y de estrategia, luego las variaciones Δ, después Ln Δ, luego ECDF,
         luego métricas del modo ratio, después MinMax y finalmente griegas. Dentro de
-        cada bloque se respeta siempre el orden: ratio A/B, A+B, A-B, +A-2B, -A+2B.
+        cada bloque se respeta siempre el orden: ratio A/B, A+B, A-B, +A-2B, A-1.5B.
         """
         mostrar_vega = bool(self._tabla_rel_show_vega_vars.get(slot, BooleanVar(value=True)).get())
         mostrar_delta_simbolo = bool(self._tabla_rel_show_delta_symbol_vars.get(slot, BooleanVar(value=True)).get())
@@ -10871,7 +10871,7 @@ class MonitorGaliciaUI:
         # 7) Griegas solo para las estrategias activas visibles en el momento.
         #    No se muestran ya las griegas individuales de Base A y Base B, porque el
         #    pedido funcional es que estos botones reflejen únicamente las estrategias
-        #    activas de la subvista (A+B, A-B, +A-2B y -A+2B).
+        #    activas de la subvista (A+B, A-B, +A-2B y A-1.5B).
         if mostrar_delta_griega and alguna_estrategia_activa:
             agregar("delta_bull", mostrar_ab)
             agregar("delta_spread", mostrar_spread)
@@ -12213,7 +12213,7 @@ class MonitorGaliciaUI:
         self._guardar_estado_ui()
 
     def _toggle_tabla_rel_ratio_neg(self, slot: int) -> None:
-        """Alterna la visibilidad de las columnas -A+2B en Tabla relaciones."""
+        """Alterna la visibilidad de las columnas A-1.5B en Tabla relaciones."""
         nuevo = not bool(self._tabla_rel_show_ratio_neg_vars[slot].get())
         self._aplicar_visibilidad_tabla_rel(slot, "ratio_neg", nuevo)
         if slot in self._tabla_rel_slots and hasattr(self, "notebook_tabla_rel"):
@@ -14429,13 +14429,13 @@ class MonitorGaliciaUI:
             "ecdfratio_spread": "ECDF Rel A-B",
             "probratio_spread": "Prob Rel A-B",
             "rel_ratio_pos_1a2b": "Rel +A-2B",
-            "rel_ratio_inv_1a2b": "Rel -A+2B",
+            "rel_ratio_inv_1a2b": "Rel A-1.5B",
             "var_ratio_ratio_pos_1a2b": "Var Rel +A-2B",
             "ecdfratio_ratio_pos_1a2b": "ECDF Rel +A-2B",
             "probratio_ratio_pos_1a2b": "Prob Rel +A-2B",
-            "var_ratio_ratio_inv_1a2b": "Var Rel -A+2B",
-            "ecdfratio_ratio_inv_1a2b": "ECDF Rel -A+2B",
-            "probratio_ratio_inv_1a2b": "Prob Rel -A+2B",
+            "var_ratio_ratio_inv_1a2b": "Var Rel A-1.5B",
+            "ecdfratio_ratio_inv_1a2b": "ECDF Rel A-1.5B",
+            "probratio_ratio_inv_1a2b": "Prob Rel A-1.5B",
             "logdelta_bull": "Log Δ A+B",
             "logratio_bull": "Log Rel A+B",
             "ecdf_bull": "ECDF A+B",
@@ -14453,28 +14453,28 @@ class MonitorGaliciaUI:
             "logratio_ratio_pos_1a2b": "Log Rel +A-2B",
             "ecdf_ratio_pos_1a2b": "ECDF +A-2B",
             "minmax_ratio_pos_1a2b_dia": "MinMax +A-2B",
-            "ratio_inv_1a2b": "-A + 2B",
-            "var_dia_ratio_inv_1a2b": "Δ -A+2B",
-            "logdelta_ratio_inv_1a2b": "Log Δ -A+2B",
-            "logratio_ratio_inv_1a2b": "Log Rel -A+2B",
-            "ecdf_ratio_inv_1a2b": "ECDF -A+2B",
-            "minmax_ratio_inv_1a2b_dia": "MinMax -A+2B",
+            "ratio_inv_1a2b": "A-1.5B",
+            "var_dia_ratio_inv_1a2b": "Δ A-1.5B",
+            "logdelta_ratio_inv_1a2b": "Log Δ A-1.5B",
+            "logratio_ratio_inv_1a2b": "Log Rel A-1.5B",
+            "ecdf_ratio_inv_1a2b": "ECDF A-1.5B",
+            "minmax_ratio_inv_1a2b_dia": "MinMax A-1.5B",
             "delta_a": "DELTA A",
             "delta_b": "DELTA B",
             "delta_bull": "DELTA A+B",
             "delta_spread": "DELTA A-B",
             "delta_ratio_pos_1a2b": "DELTA +A-2B",
-            "delta_ratio_inv_1a2b": "DELTA -A+2B",
+            "delta_ratio_inv_1a2b": "DELTA A-1.5B",
             "vega_a": "Vega A",
             "vega_b": "Vega B",
             "vega_bull": "Vega A+B",
             "vega_spread": "Vega A-B",
             "vega_ratio_pos_1a2b": "Vega +A-2B",
-            "vega_ratio_inv_1a2b": "Vega -A+2B",
+            "vega_ratio_inv_1a2b": "Vega A-1.5B",
             "theta_bull": "Theta A+B",
             "theta_spread": "Theta A-B",
             "theta_ratio_pos_1a2b": "Theta +A-2B",
-            "theta_ratio_inv_1a2b": "Theta -A+2B",
+            "theta_ratio_inv_1a2b": "Theta A-1.5B",
             "ecdf_delta_bull": "ECDF DELTA A+B",
             "ecdf_vega_bull": "ECDF VEGA A+B",
             "ecdf_theta_bull": "ECDF THETA A+B",
@@ -14484,9 +14484,9 @@ class MonitorGaliciaUI:
             "ecdf_delta_ratio_pos_1a2b": "ECDF DELTA +A-2B",
             "ecdf_vega_ratio_pos_1a2b": "ECDF VEGA +A-2B",
             "ecdf_theta_ratio_pos_1a2b": "ECDF THETA +A-2B",
-            "ecdf_delta_ratio_inv_1a2b": "ECDF DELTA -A+2B",
-            "ecdf_vega_ratio_inv_1a2b": "ECDF VEGA -A+2B",
-            "ecdf_theta_ratio_inv_1a2b": "ECDF THETA -A+2B",
+            "ecdf_delta_ratio_inv_1a2b": "ECDF DELTA A-1.5B",
+            "ecdf_vega_ratio_inv_1a2b": "ECDF VEGA A-1.5B",
+            "ecdf_theta_ratio_inv_1a2b": "ECDF THETA A-1.5B",
             "ecdf_delta_griegas": "ECDF DELTA",
             "ecdf_vega_griegas": "ECDF VEGA",
             "ecdf_theta_griegas": "ECDF THETA",
@@ -14589,43 +14589,43 @@ class MonitorGaliciaUI:
             "costo_bull": "A+B",
             "a_menos_b_last": "A-B",
             "ratio_pos_1a2b": "+A-2B",
-            "ratio_inv_1a2b": "-A+2B",
+            "ratio_inv_1a2b": "A-1.5B",
             "var_dia_bull": "Δ A+B",
             "rel_bull": "Rel A+B",
             "rel_spread": "Rel A-B",
             "rel_ratio_pos_1a2b": "Rel +A-2B",
-            "rel_ratio_inv_1a2b": "Rel -A+2B",
+            "rel_ratio_inv_1a2b": "Rel A-1.5B",
             "var_dia_spread": "Δ A-B",
             "var_dia_ratio_pos_1a2b": "Δ +A-2B",
-            "var_dia_ratio_inv_1a2b": "Δ -A+2B",
+            "var_dia_ratio_inv_1a2b": "Δ A-1.5B",
             "logdelta_bull": "Log Δ A+B",
             "logdelta_spread": "Log Δ A-B",
             "logdelta_ratio_pos_1a2b": "Log Δ +A-2B",
-            "logdelta_ratio_inv_1a2b": "Log Δ -A+2B",
+            "logdelta_ratio_inv_1a2b": "Log Δ A-1.5B",
             "logratio_bull": "Log Rel A+B",
             "logratio_spread": "Log Rel A-B",
             "logratio_ratio_pos_1a2b": "Log Rel +A-2B",
-            "logratio_ratio_inv_1a2b": "Log Rel -A+2B",
+            "logratio_ratio_inv_1a2b": "Log Rel A-1.5B",
             "ecdf_bull": "ECDF A+B",
             "ecdf_spread": "ECDF A-B",
             "ecdf_ratio_pos_1a2b": "ECDF +A-2B",
-            "ecdf_ratio_inv_1a2b": "ECDF -A+2B",
+            "ecdf_ratio_inv_1a2b": "ECDF A-1.5B",
             "delta_a": "DELTA A",
             "delta_b": "DELTA B",
             "delta_bull": "DELTA A+B",
             "delta_spread": "DELTA A-B",
             "delta_ratio_pos_1a2b": "DELTA +A-2B",
-            "delta_ratio_inv_1a2b": "DELTA -A+2B",
+            "delta_ratio_inv_1a2b": "DELTA A-1.5B",
             "vega_a": "Vega A",
             "vega_b": "Vega B",
             "vega_bull": "Vega A+B",
             "vega_spread": "Vega A-B",
             "vega_ratio_pos_1a2b": "Vega +A-2B",
-            "vega_ratio_inv_1a2b": "Vega -A+2B",
+            "vega_ratio_inv_1a2b": "Vega A-1.5B",
             "theta_bull": "Theta A+B",
             "theta_spread": "Theta A-B",
             "theta_ratio_pos_1a2b": "Theta +A-2B",
-            "theta_ratio_inv_1a2b": "Theta -A+2B",
+            "theta_ratio_inv_1a2b": "Theta A-1.5B",
             "ecdf_delta_bull": "ECDF DELTA A+B",
             "ecdf_vega_bull": "ECDF VEGA A+B",
             "ecdf_theta_bull": "ECDF THETA A+B",
@@ -14635,16 +14635,16 @@ class MonitorGaliciaUI:
             "ecdf_delta_ratio_pos_1a2b": "ECDF DELTA +A-2B",
             "ecdf_vega_ratio_pos_1a2b": "ECDF VEGA +A-2B",
             "ecdf_theta_ratio_pos_1a2b": "ECDF THETA +A-2B",
-            "ecdf_delta_ratio_inv_1a2b": "ECDF DELTA -A+2B",
-            "ecdf_vega_ratio_inv_1a2b": "ECDF VEGA -A+2B",
-            "ecdf_theta_ratio_inv_1a2b": "ECDF THETA -A+2B",
+            "ecdf_delta_ratio_inv_1a2b": "ECDF DELTA A-1.5B",
+            "ecdf_vega_ratio_inv_1a2b": "ECDF VEGA A-1.5B",
+            "ecdf_theta_ratio_inv_1a2b": "ECDF THETA A-1.5B",
             "ecdf_delta_griegas": "ECDF DELTA",
             "ecdf_vega_griegas": "ECDF VEGA",
             "ecdf_theta_griegas": "ECDF THETA",
             "minmax_ab_dia": "MinMax A+B",
             "minmax_spread_dia": "MinMax A-B",
             "minmax_ratio_pos_1a2b_dia": "MinMax +A-2B",
-            "minmax_ratio_inv_1a2b_dia": "MinMax -A+2B",
+            "minmax_ratio_inv_1a2b_dia": "MinMax A-1.5B",
             "fuente": "Fuente",
         }
         anchos.update({
@@ -14665,15 +14665,15 @@ class MonitorGaliciaUI:
             "var_ratio_bull": "Var Rel A+B",
             "var_ratio_spread": "Var Rel A-B",
             "var_ratio_ratio_pos_1a2b": "Var Rel +A-2B",
-            "var_ratio_ratio_inv_1a2b": "Var Rel -A+2B",
+            "var_ratio_ratio_inv_1a2b": "Var Rel A-1.5B",
             "ecdfratio_bull": "ECDF Rel A+B",
             "ecdfratio_spread": "ECDF Rel A-B",
             "ecdfratio_ratio_pos_1a2b": "ECDF Rel +A-2B",
-            "ecdfratio_ratio_inv_1a2b": "ECDF Rel -A+2B",
+            "ecdfratio_ratio_inv_1a2b": "ECDF Rel A-1.5B",
             "probratio_bull": "Prob Rel A+B",
             "probratio_spread": "Prob Rel A-B",
             "probratio_ratio_pos_1a2b": "Prob Rel +A-2B",
-            "probratio_ratio_inv_1a2b": "Prob Rel -A+2B",
+            "probratio_ratio_inv_1a2b": "Prob Rel A-1.5B",
         })
         for columna in self.TABLA_REL_INTRADIA_COLUMNAS:
             anchor = W if columna in {"fecha", "fuente", "minmax_ab_dia", "minmax_spread_dia", "minmax_ratio_pos_1a2b_dia", "minmax_ratio_inv_1a2b_dia"} else "e"
@@ -15388,8 +15388,8 @@ class MonitorGaliciaUI:
             "pnl_spread": "P/L A-B",
             "valor_pos": "Valor +A-2B",
             "pnl_pos": "P/L +A-2B",
-            "valor_inv": "Valor -A+2B",
-            "pnl_inv": "P/L -A+2B",
+            "valor_inv": "Valor A-1.5B",
+            "pnl_inv": "P/L A-1.5B",
             "etapa": "Etapa",
         }
         anchos = {
@@ -19674,19 +19674,19 @@ class MonitorGaliciaUI:
             except Exception:
                 pct_llenado_spread = None
         ratio_pos_1a2b = (float(pa) - 2.0 * float(pb)) if pa is not None and pb is not None else None
-        ratio_inv_1a2b = (-float(pa) + 2.0 * float(pb)) if pa is not None and pb is not None else None
+        ratio_inv_1a2b = (float(pa) - 1.5 * float(pb)) if pa is not None and pb is not None else None
         delta_bull = self._combinar_griega_lineal((1.0, da), (1.0, db))
         delta_spread = self._combinar_griega_lineal((1.0, da), (-1.0, db))
         delta_ratio_pos_1a2b = self._combinar_griega_lineal((1.0, da), (-2.0, db))
-        delta_ratio_inv_1a2b = self._combinar_griega_lineal((-1.0, da), (2.0, db))
+        delta_ratio_inv_1a2b = self._combinar_griega_lineal((1.0, da), (-1.5, db))
         vega_bull = self._combinar_griega_lineal((1.0, va), (1.0, vb))
         vega_spread = self._combinar_griega_lineal((1.0, va), (-1.0, vb))
         vega_ratio_pos_1a2b = self._combinar_griega_lineal((1.0, va), (-2.0, vb))
-        vega_ratio_inv_1a2b = self._combinar_griega_lineal((-1.0, va), (2.0, vb))
+        vega_ratio_inv_1a2b = self._combinar_griega_lineal((1.0, va), (-1.5, vb))
         theta_bull = self._combinar_griega_lineal((1.0, ta), (1.0, tb))
         theta_spread = self._combinar_griega_lineal((1.0, ta), (-1.0, tb))
         theta_ratio_pos_1a2b = self._combinar_griega_lineal((1.0, ta), (-2.0, tb))
-        theta_ratio_inv_1a2b = self._combinar_griega_lineal((-1.0, ta), (2.0, tb))
+        theta_ratio_inv_1a2b = self._combinar_griega_lineal((1.0, ta), (-1.5, tb))
         return {
             "fecha": fecha,
             "precio_a": pa,
@@ -19925,7 +19925,7 @@ class MonitorGaliciaUI:
         """Agrega variaciones absolutas y relativas contra el dato anterior para cada estrategia.
 
         Además calcula internamente los logs fuente y los ECDF visibles de delta,
-        vega y theta por estrategia (A+B, A-B, +A-2B y -A+2B), usando un modo de
+        vega y theta por estrategia (A+B, A-B, +A-2B y A-1.5B), usando un modo de
         cálculo propio por estrategia que se define desde el menú contextual.
         """
         if not filas:
@@ -20291,7 +20291,7 @@ class MonitorGaliciaUI:
             self._tabla_rel_last_rows[slot] = []
             self._refrescar_popup_grafico_tabla_rel(slot)
             self.var_tabla_rel_info.set(
-                "Tabla relaciones: elegí dos bases activas del vencimiento para ver cierres diarios, ratio A/B, A + B con last, Δ A+B, A - B last siempre visible, % llenado configurable por botón, además de su Maxi-Min diario, -A+2B (RI), Δ A-B, Δ -A+2B, tres columnas Ln% Δ y tres columnas ECDF calculadas sobre los cambios Δ A-B, Δ -A+2B y Δ A+B. Podés arrastrar los encabezados para reordenar columnas. Con Ctrl+clic podés marcar una o más columnas y con clic derecho graficarlas en una ventana emergente."
+                "Tabla relaciones: elegí dos bases activas del vencimiento para ver cierres diarios, ratio A/B, A + B con last, Δ A+B, A - B last siempre visible, % llenado configurable por botón, además de su Maxi-Min diario, A-1.5B (RI), Δ A-B, Δ A-1.5B, tres columnas Ln% Δ y tres columnas ECDF calculadas sobre los cambios Δ A-B, Δ A-1.5B y Δ A+B. Podés arrastrar los encabezados para reordenar columnas. Con Ctrl+clic podés marcar una o más columnas y con clic derecho graficarlas en una ventana emergente."
             )
             return
         # Variable local para filas hist.
@@ -20485,7 +20485,7 @@ class MonitorGaliciaUI:
         self._cargar_tree_tabla_rel(salida)
         self._refrescar_popup_grafico_tabla_rel(slot)
         self.var_tabla_rel_info.set(
-            f"Tabla relaciones: {ticker_a} / {ticker_b} | filas históricas={len(filas_hist)} | A + B usa last de ambas bases, Δ A+B compara contra la rueda anterior y la columna Min Max A+B muestra el rango intradía (max - min) de esa estrategia | A - B last muestra last A menos last B y el % de llenado del spread puede mostrarse u ocultarse con su botón; si todavía no llegaron datos al iniciar, la fila AHORA completa los last con el último valor guardado | incluye A/B, A+B, A-B, +A-2B y -A+2B con sus columnas de diferencias, relaciones, logs y ECDF calculados por jerarquía Excel según el modo Directo o Relacional | filas finales: promedio, media exponencial y % histórico de variaciones positivas | arrastrá encabezados para reordenar columnas. Con Ctrl+clic marcá una o más columnas y con clic derecho las podés graficar en una ventana aparte."
+            f"Tabla relaciones: {ticker_a} / {ticker_b} | filas históricas={len(filas_hist)} | A + B usa last de ambas bases, Δ A+B compara contra la rueda anterior y la columna Min Max A+B muestra el rango intradía (max - min) de esa estrategia | A - B last muestra last A menos last B y el % de llenado del spread puede mostrarse u ocultarse con su botón; si todavía no llegaron datos al iniciar, la fila AHORA completa los last con el último valor guardado | incluye A/B, A+B, A-B, +A-2B y A-1.5B con sus columnas de diferencias, relaciones, logs y ECDF calculados por jerarquía Excel según el modo Directo o Relacional | filas finales: promedio, media exponencial y % histórico de variaciones positivas | arrastrá encabezados para reordenar columnas. Con Ctrl+clic marcá una o más columnas y con clic derecho las podés graficar en una ventana aparte."
         )
     def _percentil_simple(self, valores: list[float], q: float) -> float | None:
         """Calcula un percentil simple por interpolación lineal."""
