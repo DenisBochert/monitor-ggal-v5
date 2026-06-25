@@ -25727,7 +25727,7 @@ class MonitorGaliciaUI:
             )
             self.sheet_cadena.pack(fill=BOTH, expand=True)
             self.sheet_cadena.enable_bindings("single_select")
-            col_widths = [115] + [100] * nbases + [90] + [100] * nbases + [115]
+            col_widths = [115] + [175] * nbases + [90] + [175] * nbases + [115]
             for i, w in enumerate(col_widths):
                 try:
                     self.sheet_cadena.column_width(i, width=w)
@@ -25816,13 +25816,17 @@ class MonitorGaliciaUI:
                 sheet.headers(atm_hdrs, redraw=False)
             except Exception:
                 pass
-            # Ancho automático según texto de cada encabezado.
+            # Anchos: PUT/CALL precio y STRIKE angostos; ratio anchos por el (costo·ratio).
             try:
-                import tkinter.font as tkfont
-                hdr_font = tkfont.Font(family="Consolas", size=12, weight="bold")
-                padding = 24
-                for i, hdr in enumerate(atm_hdrs):
-                    w = max(60, hdr_font.measure(hdr) + padding)
+                _strike_col = nbases + 1
+                _last_col = 2 * nbases + 2
+                for i in range(len(atm_hdrs)):
+                    if i == 0 or i == _last_col:
+                        w = 115
+                    elif i == _strike_col:
+                        w = 90
+                    else:
+                        w = 175
                     sheet.column_width(i, width=w)
             except Exception:
                 pass
@@ -25846,15 +25850,37 @@ class MonitorGaliciaUI:
         fin = min(len(todos), inicio + visible)
         strikes_vis = todos[inicio:fin]
 
-        def fmt_pct(v: float | None) -> str:
-            return f"{v:.1f}%" if v is not None else "--"
-
         def fmt_precio(v: float | None) -> str:
             if v is None:
                 return "--"
             s = f"{v:,.2f}"
             partes = s.split(".")
             return partes[0].replace(",", ".") + "," + partes[1]
+
+        def fmt_costo(v: float | None) -> str:
+            if v is None:
+                return "?"
+            ent, dec = f"{v:,.1f}".split(".")
+            return ent.replace(",", ".") + "," + dec
+
+        def fmt_ratio(v: float | None) -> str:
+            return f"{v:.2f}".replace(".", ",") if v is not None else "?"
+
+        def fmt_celda(celda: tuple[float | None, float | None, float | None]) -> str:
+            """Renderiza 'pendiente% (costo armado·ratio last)' para una celda de base."""
+            pct, costo, ratio = celda
+            if pct is None:
+                return "--"
+            return f"{pct:.1f}% ({fmt_costo(costo)}·{fmt_ratio(ratio)})"
+
+        def _celda_base(precio_k, precio_ref, denom):
+            """(pendiente %, costo armado con last, ratio last) entre dos bases."""
+            if precio_k and precio_ref is not None and denom > 0:
+                costo = precio_k - precio_ref
+                pct = costo / denom * 100
+                ratio = (precio_k / precio_ref) if precio_ref else None
+                return (pct, costo, ratio)
+            return (None, None, None)
 
         data: list[list[str]] = []
         cell_colors: list[tuple[int, int, str, str]] = []
@@ -25865,55 +25891,45 @@ class MonitorGaliciaUI:
             call_p = calls.get(k)
             put_p = puts.get(k)
 
-            # Put ratios: (put(K) - put(K-n)) / (K - K_ref) * 100
-            put_ratios: list[float | None] = []
+            # Put: pendiente (put(K)-put(K-n))/(K-K_ref)*100, costo armado y ratio last.
+            put_cells: list[tuple[float | None, float | None, float | None]] = []
             for n in range(1, nbases + 1):
                 ri = k_idx - n
                 if ri >= 0:
                     ref_k = todos[ri]
-                    ref_p = puts.get(ref_k)
-                    denom = k - ref_k
-                    if put_p and ref_p is not None and denom > 0:
-                        put_ratios.append((put_p - ref_p) / denom * 100)
-                    else:
-                        put_ratios.append(None)
+                    put_cells.append(_celda_base(put_p, puts.get(ref_k), k - ref_k))
                 else:
-                    put_ratios.append(None)
+                    put_cells.append((None, None, None))
 
-            # Call ratios: (call(K) - call(K+n)) / (K_ref - K) * 100
-            call_ratios: list[float | None] = []
+            # Call: pendiente (call(K)-call(K+n))/(K_ref-K)*100, costo armado y ratio last.
+            call_cells: list[tuple[float | None, float | None, float | None]] = []
             for n in range(1, nbases + 1):
                 ri = k_idx + n
                 if ri < len(todos):
                     ref_k = todos[ri]
-                    ref_p = calls.get(ref_k)
-                    denom = ref_k - k
-                    if call_p and ref_p is not None and denom > 0:
-                        call_ratios.append((call_p - ref_p) / denom * 100)
-                    else:
-                        call_ratios.append(None)
+                    call_cells.append(_celda_base(call_p, calls.get(ref_k), ref_k - k))
                 else:
-                    call_ratios.append(None)
+                    call_cells.append((None, None, None))
 
             strike_col = nbases + 1
             last_col = 2 * nbases + 2
 
             row: list[str] = [fmt_precio(put_p)]
             for n in range(nbases - 1, -1, -1):
-                row.append(fmt_pct(put_ratios[n] if n < len(put_ratios) else None))
+                row.append(fmt_celda(put_cells[n] if n < len(put_cells) else (None, None, None)))
             strike_str = f"{int(k):,}".replace(",", ".") if k == int(k) else f"{k:.1f}"
             row.append(strike_str)
             for n in range(nbases):
-                row.append(fmt_pct(call_ratios[n] if n < len(call_ratios) else None))
+                row.append(fmt_celda(call_cells[n] if n < len(call_cells) else (None, None, None)))
             row.append(fmt_precio(call_p))
             data.append(row)
 
-            # ── colores por celda ──────────────────────────────────────────
+            # ── colores por celda (según la pendiente %) ───────────────────
             cell_colors.append((r_idx, 0,
                                  "#152040" if es_atm else "#0d1117",
                                  "#aaaaaa" if es_atm else "#666666"))
             for col_idx, n in enumerate(range(nbases - 1, -1, -1)):
-                rv = put_ratios[n] if n < len(put_ratios) else None
+                rv = put_cells[n][0] if n < len(put_cells) else None
                 bg, fg = self._color_cadena_celda(rv)
                 if es_atm:
                     bg = self._cadena_tono_atm(bg)
@@ -25922,7 +25938,7 @@ class MonitorGaliciaUI:
                                  "#1a3050" if es_atm else "#0f1726",
                                  "#f0e870" if es_atm else "#9e9e9e"))
             for col_idx in range(nbases):
-                rv = call_ratios[col_idx] if col_idx < len(call_ratios) else None
+                rv = call_cells[col_idx][0] if col_idx < len(call_cells) else None
                 bg, fg = self._color_cadena_celda(rv)
                 if es_atm:
                     bg = self._cadena_tono_atm(bg)
@@ -25935,7 +25951,7 @@ class MonitorGaliciaUI:
             sheet.set_sheet_data(data, reset_col_positions=_reset_cols, redraw=False)
             if _reset_cols and getattr(self, "_cadena_hdr_key", None) is None:
                 # Fallback solo si los headers todavía no se midieron.
-                col_widths = [115] + [100] * nbases + [90] + [100] * nbases + [115]
+                col_widths = [115] + [175] * nbases + [90] + [175] * nbases + [115]
                 for i, w in enumerate(col_widths):
                     try:
                         sheet.column_width(i, width=w)
