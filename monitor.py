@@ -25658,12 +25658,12 @@ class MonitorGaliciaUI:
     def _color_cadena_celda(self, pct: float | None) -> tuple[str, str]:
         """Devuelve (bg, fg) para un ratio porcentual en la vista Cadena."""
         if pct is None:
-            return "#131a24", "#444444"
-        if pct < 25:  return "#0a2e14", "#4caf50"
-        if pct < 40:  return "#1a5428", "#81c784"
-        if pct < 55:  return "#4a3a00", "#ffd54f"
-        if pct < 70:  return "#6a2800", "#ff8a65"
-        return "#6a0f0f", "#ef5350"
+            return "#131a24", "#5a6575"
+        if pct < 25:  return "#0a2e14", "#86ff9e"
+        if pct < 40:  return "#1a5428", "#bdf7cb"
+        if pct < 55:  return "#4a3a00", "#ffe97a"
+        if pct < 70:  return "#6a2800", "#ffc09a"
+        return "#6a0f0f", "#ff9f99"
 
     def _cadena_tono_atm(self, bg_hex: str) -> str:
         """Agrega un tono azul a un color de fondo para resaltar la fila ATM."""
@@ -25719,15 +25719,19 @@ class MonitorGaliciaUI:
                 headers=headers,
                 show_row_index=False,
                 header_bg="#0f1726",
-                header_fg="#c8c8c8",
+                header_fg="#dfe6f0",
                 table_bg="#0d1117",
-                table_fg="#e8e8e8",
-                header_font=("Consolas", 12, "bold"),
-                font=("Consolas", 14, "normal"),
+                table_fg="#f2f4f8",
+                header_font=("Consolas", 11, "bold"),
+                font=("Consolas", 12, "normal"),
             )
             self.sheet_cadena.pack(fill=BOTH, expand=True)
             self.sheet_cadena.enable_bindings("single_select")
-            col_widths = [115] + [175] * nbases + [90] + [175] * nbases + [115]
+            try:
+                self.sheet_cadena.set_options(default_row_height=32)
+            except Exception:
+                pass
+            col_widths = [110] + [155] * nbases + [80] + [155] * nbases + [110]
             for i, w in enumerate(col_widths):
                 try:
                     self.sheet_cadena.column_width(i, width=w)
@@ -25822,11 +25826,11 @@ class MonitorGaliciaUI:
                 _last_col = 2 * nbases + 2
                 for i in range(len(atm_hdrs)):
                     if i == 0 or i == _last_col:
-                        w = 115
+                        w = 110
                     elif i == _strike_col:
-                        w = 90
+                        w = 80
                     else:
-                        w = 175
+                        w = 155
                     sheet.column_width(i, width=w)
             except Exception:
                 pass
@@ -25927,7 +25931,7 @@ class MonitorGaliciaUI:
             # ── colores por celda (según la pendiente %) ───────────────────
             cell_colors.append((r_idx, 0,
                                  "#152040" if es_atm else "#0d1117",
-                                 "#aaaaaa" if es_atm else "#666666"))
+                                 "#e6ebf2" if es_atm else "#aab4c2"))
             for col_idx, n in enumerate(range(nbases - 1, -1, -1)):
                 rv = put_cells[n][0] if n < len(put_cells) else None
                 bg, fg = self._color_cadena_celda(rv)
@@ -25936,7 +25940,7 @@ class MonitorGaliciaUI:
                 cell_colors.append((r_idx, col_idx + 1, bg, fg))
             cell_colors.append((r_idx, strike_col,
                                  "#1a3050" if es_atm else "#0f1726",
-                                 "#f0e870" if es_atm else "#9e9e9e"))
+                                 "#f0e870" if es_atm else "#c4cad4"))
             for col_idx in range(nbases):
                 rv = call_cells[col_idx][0] if col_idx < len(call_cells) else None
                 bg, fg = self._color_cadena_celda(rv)
@@ -25951,7 +25955,7 @@ class MonitorGaliciaUI:
             sheet.set_sheet_data(data, reset_col_positions=_reset_cols, redraw=False)
             if _reset_cols and getattr(self, "_cadena_hdr_key", None) is None:
                 # Fallback solo si los headers todavía no se midieron.
-                col_widths = [115] + [175] * nbases + [90] + [175] * nbases + [115]
+                col_widths = [110] + [155] * nbases + [80] + [155] * nbases + [110]
                 for i, w in enumerate(col_widths):
                     try:
                         sheet.column_width(i, width=w)
