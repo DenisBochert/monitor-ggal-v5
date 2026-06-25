@@ -25722,16 +25722,16 @@ class MonitorGaliciaUI:
                 header_fg="#dfe6f0",
                 table_bg="#0d1117",
                 table_fg="#f2f4f8",
-                header_font=("Consolas", 11, "bold"),
-                font=("Consolas", 12, "normal"),
+                header_font=("Consolas", 10, "bold"),
+                font=("Consolas", 10, "normal"),
             )
             self.sheet_cadena.pack(fill=BOTH, expand=True)
             self.sheet_cadena.enable_bindings("single_select")
             try:
-                self.sheet_cadena.set_options(default_row_height=32)
+                self.sheet_cadena.set_options(default_row_height=23)
             except Exception:
                 pass
-            col_widths = [110] + [155] * nbases + [80] + [155] * nbases + [110]
+            col_widths = [95] + [135] * nbases + [68] + [135] * nbases + [95]
             for i, w in enumerate(col_widths):
                 try:
                     self.sheet_cadena.column_width(i, width=w)
@@ -25826,11 +25826,11 @@ class MonitorGaliciaUI:
                 _last_col = 2 * nbases + 2
                 for i in range(len(atm_hdrs)):
                     if i == 0 or i == _last_col:
-                        w = 110
+                        w = 95
                     elif i == _strike_col:
-                        w = 80
+                        w = 68
                     else:
-                        w = 155
+                        w = 135
                     sheet.column_width(i, width=w)
             except Exception:
                 pass
@@ -25864,6 +25864,8 @@ class MonitorGaliciaUI:
         def fmt_costo(v: float | None) -> str:
             if v is None:
                 return "?"
+            if abs(v) >= 1000:  # con miles el decimal es ruido y alarga la celda
+                return f"{v:,.0f}".replace(",", ".")
             ent, dec = f"{v:,.1f}".split(".")
             return ent.replace(",", ".") + "," + dec
 
@@ -25955,7 +25957,7 @@ class MonitorGaliciaUI:
             sheet.set_sheet_data(data, reset_col_positions=_reset_cols, redraw=False)
             if _reset_cols and getattr(self, "_cadena_hdr_key", None) is None:
                 # Fallback solo si los headers todavía no se midieron.
-                col_widths = [110] + [155] * nbases + [80] + [155] * nbases + [110]
+                col_widths = [95] + [135] * nbases + [68] + [135] * nbases + [95]
                 for i, w in enumerate(col_widths):
                     try:
                         sheet.column_width(i, width=w)
