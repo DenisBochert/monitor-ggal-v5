@@ -25804,12 +25804,12 @@ class MonitorGaliciaUI:
             atm_hdrs = ["PUT"]
             for n in range(nbases, 0, -1):
                 ri = atm_idx - n
-                lbl = f"P-{n} ({_sk(todos[ri])})" if ri >= 0 else f"P-{n}"
+                lbl = f"P-{n}"
                 atm_hdrs.append(lbl)
             atm_hdrs.append("STRIKE")
             for n in range(1, nbases + 1):
                 ri = atm_idx + n
-                lbl = f"C+{n} ({_sk(todos[ri])})" if ri < len(todos) else f"C+{n}"
+                lbl = f"C+{n}"
                 atm_hdrs.append(lbl)
             atm_hdrs.append("CALL")
             try:
