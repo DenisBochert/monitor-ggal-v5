@@ -28817,29 +28817,17 @@ class MonitorGaliciaUI:
             if isinstance(self._analytics_latest, dict):
                 latest_signature = self._analytics_latest.get("signature")
             if self._analytics_latest is not None and latest_signature == signature:
-                # Variable local para enriquecidas.
+                # Worker terminó con datos frescos para este tick.
                 enriquecidas = list(self._analytics_latest.get("enriquecidas") or [])
-                # Variable local para precio subyacente.
                 precio_subyacente = self._analytics_latest.get("precio_subyacente")
-            elif requiere_live_rapido:
-                enriquecidas, precio_subyacente = enriquecer_filas_analiticas(
-                    filas,
-                    self.instrumentos_por_ticker,
-                    tasa,
-                    analytics_cache=self._analytics_cache,
-                    referencia_tiempo=referencia_tiempo,
-                )
-                self._analytics_latest = {
-                    "signature": signature,
-                    "enriquecidas": list(enriquecidas),
-                    "precio_subyacente": precio_subyacente,
-                }
             elif self._analytics_latest is not None:
-                # Variable local para enriquecidas.
+                # Worker aún no terminó (o requiere_live_rapido): usar snapshot
+                # anterior en lugar de bloquear el hilo de UI. El dato tiene como
+                # máximo un intervalo de refresco de antigüedad (≤120 ms).
                 enriquecidas = list(self._analytics_latest.get("enriquecidas") or [])
-                # Variable local para precio subyacente.
                 precio_subyacente = self._analytics_latest.get("precio_subyacente")
             else:
+                # Primera ejecución sin ningún cache: cálculo síncrono inevitable.
                 enriquecidas, precio_subyacente = enriquecer_filas_analiticas(
                     filas,
                     self.instrumentos_por_ticker,
