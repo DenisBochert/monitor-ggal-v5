@@ -25864,10 +25864,7 @@ class MonitorGaliciaUI:
         def fmt_costo(v: float | None) -> str:
             if v is None:
                 return "?"
-            if abs(v) >= 1000:  # con miles el decimal es ruido y alarga la celda
-                return f"{v:,.0f}".replace(",", ".")
-            ent, dec = f"{v:,.1f}".split(".")
-            return ent.replace(",", ".") + "," + dec
+            return f"{v:,.0f}".replace(",", ".")
 
         def fmt_ratio(v: float | None) -> str:
             return f"{v:.2f}".replace(".", ",") if v is not None else "?"
