@@ -1,0 +1,25 @@
+﻿# Credenciales — nunca subir
+contras.py
+
+# Datos persistidos localmente (pesados o privados)
+salida_monitor/
+data/*.sqlite3
+
+# Entorno virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Logs
+*.log
+*.log.*
+
+# IDE / OS
+.idea/
+.vscode/
+*.DS_Store
+Thumbs.db
