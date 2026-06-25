@@ -5494,6 +5494,24 @@ class SheetTableAdapter(ttk.Frame):
             lambda: self.sheet.highlight_cells(cells=[(row_idx, col_idx)], bg=bg_val, fg=fg_val, redraw=False),
         )
 
+    def _sheet_highlight_cells_batch(self, cells: list[tuple[int, int]], bg: str, fg: str) -> None:
+        """Aplica highlight a múltiples celdas del mismo color en una sola llamada."""
+        if not cells:
+            return
+        self._safe_sheet_call(
+            lambda: self.sheet.highlight_cells(cells=cells, bg=bg, fg=fg, redraw=False),
+            lambda: [self.sheet.highlight_cells(row=r, column=c, bg=bg, fg=fg, redraw=False) for r, c in cells],
+        )
+
+    def _sheet_highlight_rows_batch(self, rows: list[int], bg: str, fg: str) -> bool:
+        """Aplica highlight a múltiples filas del mismo color en una sola llamada."""
+        if not rows:
+            return False
+        return self._safe_sheet_call(
+            lambda: self.sheet.highlight_rows(rows=rows, bg=bg, fg=fg, redraw=False),
+            lambda: [self.sheet.highlight_rows(rows=[r], bg=bg, fg=fg, redraw=False) for r in rows],
+        )
+
     def _sheet_highlight_row(self, row_idx: int, bg: str | None, fg: str | None) -> bool:
         if bg is None and fg is None:
             return False
@@ -5568,9 +5586,14 @@ class SheetTableAdapter(ttk.Frame):
             self._sheet_set_headers(headers)
         elif not self._current_headers:
             self._current_headers = list(headers)
-        self._sheet_clear_highlights()
         for col_idx, columna in enumerate(self._displaycolumns):
             self._sheet_set_col_width(col_idx, int(self._column_widths.get(columna, 96)))
+
+        # Acumular highlights agrupados por color para aplicarlos en batch.
+        # Reduce las llamadas al widget de N×M individuales a pocas por color único.
+        row_hl: dict[tuple[str, str], list[int]] = {}
+        cell_hl: dict[tuple[str, str], list[tuple[int, int]]] = {}
+
         for row_idx, iid in enumerate(self._order):
             fila = self._rows_by_iid.get(iid, {})
             tags = tuple(fila.get('tags') or ())
@@ -5578,7 +5601,10 @@ class SheetTableAdapter(ttk.Frame):
             row_selected = iid in self._selection
             if row_selected:
                 row_bg, row_fg = '#1976d2', '#ffffff'
-            row_highlighted = self._sheet_highlight_row(row_idx, row_bg, row_fg)
+            row_will_highlight = row_bg is not None or row_fg is not None
+            if row_will_highlight:
+                key = (row_bg or '#ffffff', row_fg or '#000000')
+                row_hl.setdefault(key, []).append(row_idx)
             raw_fila = fila.get('raw') or {}
             cell_styles = raw_fila.get('_cell_styles') if isinstance(raw_fila, dict) else None
             for col_idx, columna in enumerate(self._displaycolumns):
@@ -5614,11 +5640,18 @@ class SheetTableAdapter(ttk.Frame):
                     else:
                         bg_final = '#dbeafe'
                         fg_final = '#0f172a'
-                elif not row_highlighted and (row_bg is not None or row_fg is not None):
+                elif not row_will_highlight and (row_bg is not None or row_fg is not None):
                     bg_final = row_bg
                     fg_final = row_fg
                 if bg_final is not None or fg_final is not None:
-                    self._sheet_highlight_cell(row_idx, col_idx, bg_final, fg_final)
+                    key = (bg_final or '#ffffff', fg_final or '#000000')
+                    cell_hl.setdefault(key, []).append((row_idx, col_idx))
+
+        self._sheet_clear_highlights()
+        for (bg, fg), rows in row_hl.items():
+            self._sheet_highlight_rows_batch(rows, bg, fg)
+        for (bg, fg), cells in cell_hl.items():
+            self._sheet_highlight_cells_batch(cells, bg, fg)
         self._sheet_redraw()
         self._sheet_restore_scroll_state(estado_scroll)
         self._last_render_signature = render_signature
